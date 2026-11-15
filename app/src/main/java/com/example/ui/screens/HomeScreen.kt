@@ -5,8 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,15 +22,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.CurrencyExchange
 import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -45,14 +40,10 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -70,13 +61,9 @@ import com.example.data.model.Currency
 import com.example.data.model.MonthlyAnalytics
 import com.example.ui.components.AddEditExpenseDialog
 import com.example.ui.components.ExpenseItemCard
-import com.example.ui.components.InteractiveCategoryDonutChart
-import com.example.ui.components.InteractiveDailyBarChart
-import com.example.ui.components.InteractiveMultiMonthTrendChart
 import com.example.ui.components.MonthSelectorHeader
 import com.example.ui.components.MonthlyHeroSummaryCard
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(
     analytics: MonthlyAnalytics,
@@ -92,8 +79,7 @@ fun HomeScreen(
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
     onResetCurrentMonth: () -> Unit,
-    onSelectMonth: (year: Int, month: Int) -> Unit,
-    onAddExpense: (amount: Double, category: Category, timestamp: Long, paymentMethod: String, notes: String, isIncome: Boolean) -> Unit,
+    onAddExpense: (title: String, amount: Double, category: Category, timestamp: Long, paymentMethod: String, notes: String, isIncome: Boolean) -> Unit,
     onUpdateExpense: (ExpenseEntity) -> Unit,
     onDeleteExpense: (ExpenseEntity) -> Unit,
     onChangeCurrencyRequested: () -> Unit,
@@ -104,7 +90,6 @@ fun HomeScreen(
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var expenseToEdit by remember { mutableStateOf<ExpenseEntity?>(null) }
-    var chartMode by remember { mutableIntStateOf(0) } // 0: Donut breakdown, 1: Daily activity, 2: Multi-month
 
     Scaffold(
         floatingActionButton = {
@@ -310,88 +295,50 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
                 }
-            }
-
-            // Interactive Chart Mode Selector Tabs
-            item {
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    SegmentedButton(
-                        selected = chartMode == 0,
-                        onClick = { chartMode = 0 },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Default.PieChart,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
+            } else if (expenses.isNotEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
                     ) {
-                        Text("Category", maxLines = 1)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Savings,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Set a monthly budget",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    text = "Add a category limit to see what is safe to spend.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                            Button(
+                                onClick = onNavigateToBudgets,
+                                shape = RoundedCornerShape(10.dp)
+                            ) { Text("Set budget") }
+                        }
                     }
 
-                    SegmentedButton(
-                        selected = chartMode == 1,
-                        onClick = { chartMode = 1 },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Default.BarChart,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    ) {
-                        Text("Daily", maxLines = 1)
-                    }
-
-                    SegmentedButton(
-                        selected = chartMode == 2,
-                        onClick = { chartMode = 2 },
-                        shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Default.Timeline,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    ) {
-                        Text("Trend", maxLines = 1)
-                    }
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
-
-                Spacer(modifier = Modifier.height(14.dp))
-            }
-
-            // Active Interactive Chart
-            item {
-                when (chartMode) {
-                    0 -> InteractiveCategoryDonutChart(
-                        categoryBreakdowns = analytics.categoryBreakdowns,
-                        totalSpent = analytics.totalSpent,
-                        formattedTotal = formatCurrency(analytics.totalSpent),
-                        onCategorySelected = { cat ->
-                            onCategoryFilterChange(cat?.categoryId)
-                        },
-                        formatCurrency = formatCurrency
-                    )
-                    1 -> InteractiveDailyBarChart(
-                        dailySpendings = analytics.dailySpendings,
-                        dailyAverage = analytics.dailyAverage,
-                        formatCurrency = formatCurrency
-                    )
-                    else -> InteractiveMultiMonthTrendChart(
-                        trends = analytics.multiMonthTrends,
-                        currentMonthIndex = selectedMonth,
-                        onSelectMonth = onSelectMonth,
-                        formatCurrency = formatCurrency
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
             }
 
             // Search and Category Filter Row
@@ -586,8 +533,8 @@ fun HomeScreen(
             currency = currentCurrency,
             availableCategories = availableCategories,
             onDismiss = { showAddDialog = false },
-            onSave = { amount, category, timestamp, paymentMethod, notes, isIncome ->
-                onAddExpense(amount, category, timestamp, paymentMethod, notes, isIncome)
+            onSave = { title, amount, category, timestamp, paymentMethod, notes, isIncome ->
+                onAddExpense(title, amount, category, timestamp, paymentMethod, notes, isIncome)
             },
             onAddCustomCategory = onAddCustomCategory
         )
@@ -600,9 +547,9 @@ fun HomeScreen(
             currency = currentCurrency,
             availableCategories = availableCategories,
             onDismiss = { expenseToEdit = null },
-            onSave = { amount, category, timestamp, paymentMethod, notes, isIncome ->
+            onSave = { title, amount, category, timestamp, paymentMethod, notes, isIncome ->
                 val updated = expenseToEdit!!.copy(
-                    title = category.name,
+                    title = title.ifBlank { category.name },
                     amount = amount,
                     categoryId = category.id,
                     categoryName = category.name,

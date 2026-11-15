@@ -85,13 +85,13 @@ fun AnalyticsScreen(
         ) {
             item {
                 Text(
-                    text = "Analytics & Trends",
+                    text = "Insights",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Deep dive into your monthly spending patterns",
+                    text = "Understand your monthly spending patterns",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -32,8 +32,8 @@ fun WalkthroughScreen(
             Icons.Default.AccountBalanceWallet
         ),
         Triple(
-            "Smart Budgets & Alerts",
-            "Set monthly limits for categories and get clear insights on your spending pace to stay on track.",
+            "Smart Budgets & Progress",
+            "Set monthly limits for categories and clearly see your spending pace to stay on track.",
             Icons.Default.Savings
         ),
         Triple(

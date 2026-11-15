@@ -76,7 +76,7 @@ fun AddEditExpenseDialog(
     currency: Currency,
     availableCategories: List<Category>,
     onDismiss: () -> Unit,
-    onSave: (amount: Double, category: Category, timestamp: Long, paymentMethod: String, notes: String, isIncome: Boolean) -> Unit,
+    onSave: (title: String, amount: Double, category: Category, timestamp: Long, paymentMethod: String, notes: String, isIncome: Boolean) -> Unit,
     onDelete: ((ExpenseEntity) -> Unit)? = null,
     onAddCustomCategory: ((name: String, iconKey: String, colorHex: Long) -> Unit)? = null
 ) {
@@ -85,6 +85,7 @@ fun AddEditExpenseDialog(
     var amountText by remember {
         mutableStateOf(existingExpense?.let { String.format(Locale.US, "%.2f", it.amount) } ?: "")
     }
+    var titleText by remember { mutableStateOf(existingExpense?.title.orEmpty()) }
     var isIncome by remember { mutableStateOf(existingExpense?.isIncome ?: false) }
     var selectedCategory by remember {
         mutableStateOf(
@@ -99,6 +100,7 @@ fun AddEditExpenseDialog(
     var paymentMethod by remember { mutableStateOf(existingExpense?.paymentMethod ?: "UPI") }
     var notes by remember { mutableStateOf(existingExpense?.notes ?: "") }
     var amountError by remember { mutableStateOf<String?>(null) }
+    var showMoreDetails by remember { mutableStateOf(isEditing) }
 
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
@@ -142,8 +144,8 @@ fun AddEditExpenseDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Date Button in Header
-                        Surface(
+                        // Date is optional for a new entry, but always visible when editing.
+                        if (isEditing || showMoreDetails) Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant,
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
@@ -211,6 +213,7 @@ fun AddEditExpenseDialog(
                                     if (parsed.amount > 0) {
                                         amountText = parsed.amount.toString()
                                     }
+                                    titleText = parsed.title
                                     selectedCategory = availableCategories.find { it.id == parsed.categoryId } ?: selectedCategory
                                     notes = clipText
                                 }
@@ -314,6 +317,20 @@ fun AddEditExpenseDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("amount_input"),
+                    shape = RoundedCornerShape(14.dp)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = titleText,
+                    onValueChange = { titleText = it },
+                    label = { Text("Paid to / Description") },
+                    placeholder = { Text("e.g. Uber, Lunch at Cafe") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("transaction_title_input"),
                     shape = RoundedCornerShape(14.dp)
                 )
 
@@ -451,7 +468,18 @@ fun AddEditExpenseDialog(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Payment Method
+                if (!isEditing) {
+                    TextButton(
+                        onClick = { showMoreDetails = !showMoreDetails },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (showMoreDetails) "Hide additional details" else "Add date, payment method, or notes")
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+
+                if (isEditing || showMoreDetails) {
+                // Optional details
                 Text(
                     text = "Payment Method",
                     style = MaterialTheme.typography.labelLarge,
@@ -511,6 +539,7 @@ fun AddEditExpenseDialog(
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
+                }
 
                 // Action Buttons
                 Row(
@@ -540,7 +569,7 @@ fun AddEditExpenseDialog(
                                 amountError = "Please enter a valid amount"
                                 return@Button
                             }
-                            onSave(amt, selectedCategory, timestamp, paymentMethod, notes, isIncome)
+                            onSave(titleText.trim(), amt, selectedCategory, timestamp, paymentMethod, notes, isIncome)
                             onDismiss()
                         },
                         modifier = Modifier

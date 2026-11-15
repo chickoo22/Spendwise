@@ -69,7 +69,7 @@ fun TransactionsScreen(
     selectedYear: Int = 2026,
     selectedMonth: Int = 0,
     monthTitle: String = "",
-    onAddExpense: (amount: Double, category: Category, timestamp: Long, paymentMethod: String, notes: String, isIncome: Boolean) -> Unit,
+    onAddExpense: (title: String, amount: Double, category: Category, timestamp: Long, paymentMethod: String, notes: String, isIncome: Boolean) -> Unit,
     onUpdateExpense: (ExpenseEntity) -> Unit,
     onDeleteExpense: (ExpenseEntity) -> Unit,
     formatCurrency: (Double) -> String,
@@ -79,13 +79,26 @@ fun TransactionsScreen(
     var selectedCategoryId by remember { mutableStateOf<String?>(null) }
     var sortOption by remember { mutableIntStateOf(0) } // 0: Newest, 1: Oldest, 2: Highest Amount, 3: Lowest Amount
     var showSortMenu by remember { mutableStateOf(false) }
+    var showAllDates by remember { mutableStateOf(false) }
 
     var showAddDialog by remember { mutableStateOf(false) }
     var expenseToEdit by remember { mutableStateOf<ExpenseEntity?>(null) }
 
     // Filter and Sort
-    val filteredList = remember(allExpenses, searchQuery, selectedCategoryId, sortOption) {
-        val filtered = allExpenses.filter { item ->
+    val scopedExpenses = remember(allExpenses, selectedYear, selectedMonth, showAllDates) {
+        if (showAllDates) {
+            allExpenses
+        } else {
+            val calendar = Calendar.getInstance()
+            allExpenses.filter { item ->
+                calendar.timeInMillis = item.timestamp
+                calendar.get(Calendar.YEAR) == selectedYear && calendar.get(Calendar.MONTH) == selectedMonth
+            }
+        }
+    }
+
+    val filteredList = remember(scopedExpenses, searchQuery, selectedCategoryId, sortOption) {
+        val filtered = scopedExpenses.filter { item ->
             val matchesQuery = searchQuery.isBlank() ||
                     item.title.contains(searchQuery, ignoreCase = true) ||
                     item.notes.contains(searchQuery, ignoreCase = true) ||
@@ -165,7 +178,7 @@ fun TransactionsScreen(
                 ) {
                     Column {
                         Text(
-                            text = "All Transactions",
+                            text = if (showAllDates) "All Transactions" else "$monthTitle Transactions",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -229,6 +242,41 @@ fun TransactionsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (!showAllDates) {
+                        Button(
+                            onClick = { showAllDates = false },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text(monthTitle, maxLines = 1) }
+                    } else {
+                        OutlinedButton(
+                            onClick = { showAllDates = false },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text(monthTitle, maxLines = 1) }
+                    }
+                    if (showAllDates) {
+                        Button(
+                            onClick = { showAllDates = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text("All time") }
+                    } else {
+                        OutlinedButton(
+                            onClick = { showAllDates = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text("All time") }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
             // Search Bar
             item {
                 OutlinedTextField(
@@ -271,7 +319,7 @@ fun TransactionsScreen(
                                 .clickable { selectedCategoryId = null }
                         ) {
                             Text(
-                                text = "All (${allExpenses.size})",
+                                text = "All (${scopedExpenses.size})",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isAllSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -398,8 +446,8 @@ fun TransactionsScreen(
             currency = currentCurrency,
             availableCategories = availableCategories,
             onDismiss = { showAddDialog = false },
-            onSave = { amount, category, timestamp, paymentMethod, notes, isIncome ->
-                onAddExpense(amount, category, timestamp, paymentMethod, notes, isIncome)
+            onSave = { title, amount, category, timestamp, paymentMethod, notes, isIncome ->
+                onAddExpense(title, amount, category, timestamp, paymentMethod, notes, isIncome)
             },
             onAddCustomCategory = onAddCustomCategory
         )
@@ -411,9 +459,9 @@ fun TransactionsScreen(
             currency = currentCurrency,
             availableCategories = availableCategories,
             onDismiss = { expenseToEdit = null },
-            onSave = { amount, category, timestamp, paymentMethod, notes, isIncome ->
+            onSave = { title, amount, category, timestamp, paymentMethod, notes, isIncome ->
                 val updated = expenseToEdit!!.copy(
-                    title = category.name,
+                    title = title.ifBlank { category.name },
                     amount = amount,
                     categoryId = category.id,
                     categoryName = category.name,

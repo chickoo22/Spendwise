@@ -184,10 +184,10 @@ fun SpendWiseApp(viewModel: ExpenseViewModel) {
                             icon = {
                                 Icon(
                                     imageVector = if (currentTab == 2) Icons.Filled.BarChart else Icons.Outlined.BarChart,
-                                    contentDescription = "Analytics"
+                                    contentDescription = "Insights"
                                 )
                             },
-                            label = { Text("Analytics") },
+                            label = { Text("Insights") },
                             modifier = Modifier.testTag("nav_item_analytics")
                         )
 
@@ -200,7 +200,7 @@ fun SpendWiseApp(viewModel: ExpenseViewModel) {
                                     contentDescription = "Transactions"
                                 )
                             },
-                            label = { Text("History") },
+                            label = { Text("Activity") },
                             modifier = Modifier.testTag("nav_item_transactions")
                         )
 
@@ -235,9 +235,8 @@ fun SpendWiseApp(viewModel: ExpenseViewModel) {
                             onPreviousMonth = { viewModel.prevMonth() },
                             onNextMonth = { viewModel.nextMonth() },
                             onResetCurrentMonth = { viewModel.resetToCurrentMonth() },
-                            onSelectMonth = { y, m -> viewModel.setMonth(y, m) },
-                            onAddExpense = { amt, cat, time, payMethod, notes, isIncome ->
-                                viewModel.addExpense(amt, cat, time, payMethod, notes, isIncome)
+                            onAddExpense = { title, amt, cat, time, payMethod, notes, isIncome ->
+                                viewModel.addExpense(title, amt, cat, time, payMethod, notes, isIncome)
                             },
                             onUpdateExpense = { viewModel.updateExpense(it) },
                             onDeleteExpense = { viewModel.deleteExpense(it) },
@@ -289,8 +288,8 @@ fun SpendWiseApp(viewModel: ExpenseViewModel) {
                             selectedYear = selectedYear,
                             selectedMonth = selectedMonth,
                             monthTitle = analytics.monthTitle,
-                            onAddExpense = { amt, cat, time, payMethod, notes, isIncome ->
-                                viewModel.addExpense(amt, cat, time, payMethod, notes, isIncome)
+                            onAddExpense = { title, amt, cat, time, payMethod, notes, isIncome ->
+                                viewModel.addExpense(title, amt, cat, time, payMethod, notes, isIncome)
                             },
                             onUpdateExpense = { viewModel.updateExpense(it) },
                             onDeleteExpense = { viewModel.deleteExpense(it) },
