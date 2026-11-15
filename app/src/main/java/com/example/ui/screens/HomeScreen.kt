@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.ExpenseEntity
+import com.example.data.local.RecurringExpenseEntity
 import com.example.data.model.Category
 import com.example.data.model.Currency
 import com.example.data.model.MonthlyAnalytics
@@ -86,10 +87,18 @@ fun HomeScreen(
     formatCurrency: (Double) -> String,
     overallBudgetSummary: com.example.data.model.OverallBudgetSummary? = null,
     onNavigateToBudgets: () -> Unit = {},
+    recurringExpenses: List<RecurringExpenseEntity> = emptyList(),
+    onNavigateToRecurring: () -> Unit = {},
     onAddCustomCategory: (name: String, iconKey: String, colorHex: Long) -> Unit = { _, _, _ -> }
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var expenseToEdit by remember { mutableStateOf<ExpenseEntity?>(null) }
+    val upcomingRecurring = remember(recurringExpenses) {
+        val sevenDaysFromNow = System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000
+        recurringExpenses
+            .filter { it.isActive && it.nextDueDate <= sevenDaysFromNow }
+            .minByOrNull { it.nextDueDate }
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -268,7 +277,53 @@ fun HomeScreen(
                                 trackColor = MaterialTheme.colorScheme.surfaceVariant
                             )
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isExceeded) {
+                                    MaterialTheme.colorScheme.errorContainer
+                                } else {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "SAFE TO SPEND TODAY",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isExceeded) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                        Text(
+                                            text = if (isExceeded) {
+                                                "Your budgeted categories are over limit"
+                                            } else {
+                                                "Based on ${overallBudgetSummary.daysRemainingInMonth} days remaining"
+                                            },
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (isExceeded) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                    Text(
+                                        text = when {
+                                            isExceeded -> "Over budget"
+                                            overallBudgetSummary.dailyBudgetRemaining > 0 -> formatCurrency(overallBudgetSummary.dailyBudgetRemaining)
+                                            else -> "No allowance"
+                                        },
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = if (isExceeded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -334,6 +389,55 @@ fun HomeScreen(
                                 onClick = onNavigateToBudgets,
                                 shape = RoundedCornerShape(10.dp)
                             ) { Text("Set budget") }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+
+            if (upcomingRecurring != null) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
+                            .clickable { onNavigateToRecurring() },
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Upcoming recurring transaction",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = upcomingRecurring.title,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Text(
+                                text = formatCurrency(upcomingRecurring.amount),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                         }
                     }
 

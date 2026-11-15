@@ -244,6 +244,8 @@ fun SpendWiseApp(viewModel: ExpenseViewModel) {
                             formatCurrency = { viewModel.formatCurrency(it) },
                             overallBudgetSummary = overallBudgetSummary,
                             onNavigateToBudgets = { currentTab = 1 },
+                            recurringExpenses = recurringList,
+                            onNavigateToRecurring = { currentTab = 4 },
                             onAddCustomCategory = { name, icon, color ->
                                 viewModel.addCustomCategory(name, icon, color)
                             }

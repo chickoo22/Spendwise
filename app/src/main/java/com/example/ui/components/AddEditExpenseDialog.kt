@@ -203,7 +203,7 @@ fun AddEditExpenseDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Smart Paste WhatsApp / Clipboard Button (Fully Readable & Understandable)
+                // Smart payment-message paste from the clipboard
                 if (!isEditing) {
                     OutlinedButton(
                         onClick = {
@@ -231,7 +231,7 @@ fun AddEditExpenseDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Paste & Smart Parse WhatsApp Text",
+                            text = "Paste & Detect Payment Details",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary

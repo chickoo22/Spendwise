@@ -86,7 +86,7 @@ fun SmartParseExpenseDialog(
                     .padding(24.dp)
                     .fillMaxWidth()
             ) {
-                // Header with AI WhatsApp sparkle icon
+                // Header for shared payment-message import
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -112,13 +112,13 @@ fun SmartParseExpenseDialog(
                         }
                         Column {
                             Text(
-                                text = "WhatsApp Smart Import",
+                                text = "Payment Message Import",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Parsed automatically from message",
+                                text = "Review detected details before saving",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -139,7 +139,7 @@ fun SmartParseExpenseDialog(
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Expense Title") },
+                    label = { Text("Merchant or description") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
