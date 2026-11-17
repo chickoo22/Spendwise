@@ -38,6 +38,9 @@ class ExpenseViewModel(
 ) : AndroidViewModel(application) {
 
     private val prefs = application.getSharedPreferences("spendwise_prefs", Context.MODE_PRIVATE)
+    private companion object {
+        const val KEY_APP_LOCK_ENABLED = "app_lock_enabled"
+    }
 
     // Onboarding and Currency
     private val _isOnboarded = MutableStateFlow<Boolean?>(null)
@@ -47,6 +50,9 @@ class ExpenseViewModel(
         AvailableCurrencies.findByCode(prefs.getString("currency_code", "USD") ?: "USD")
     )
     val currentCurrency: StateFlow<Currency> = _currentCurrency.asStateFlow()
+
+    private val _appLockEnabled = MutableStateFlow(prefs.getBoolean(KEY_APP_LOCK_ENABLED, false))
+    val appLockEnabled: StateFlow<Boolean> = _appLockEnabled.asStateFlow()
 
     // Custom categories
     val customCategories: StateFlow<List<Category>> = repository.customCategories
@@ -190,14 +196,21 @@ class ExpenseViewModel(
     }
 
     fun updateCurrency(currency: Currency) {
-        prefs.edit()
-            .putString("currency_code", currency.code)
-            .putString("currency_symbol", currency.symbol)
-            .apply()
-        _currentCurrency.value = currency
         viewModelScope.launch {
+            // Amounts are stored in the selected base currency; never silently re-label history.
+            if (repository.hasExpenses()) return@launch
+            prefs.edit()
+                .putString("currency_code", currency.code)
+                .putString("currency_symbol", currency.symbol)
+                .apply()
+            _currentCurrency.value = currency
             repository.saveCurrency(currency)
         }
+    }
+
+    fun setAppLockEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_APP_LOCK_ENABLED, enabled).apply()
+        _appLockEnabled.value = enabled
     }
 
     fun nextMonth() {
@@ -358,8 +371,11 @@ class ExpenseViewModel(
 
     fun clearAllData() {
         viewModelScope.launch {
-            repository.clearAllExpenses()
-            repository.clearAllBudgets()
+            repository.clearAllData()
+            prefs.edit().clear().apply()
+            _currentCurrency.value = AvailableCurrencies.default
+            _isOnboarded.value = false
+            _appLockEnabled.value = false
         }
     }
 
@@ -388,7 +404,7 @@ class ExpenseViewModel(
         // Filter expenses for selected month
         val currentMonthExpenses = allExpenses.filter { item ->
             cal.timeInMillis = item.timestamp
-            cal.get(Calendar.YEAR) == year && cal.get(Calendar.MONTH) == month
+            cal.get(Calendar.YEAR) == year && cal.get(Calendar.MONTH) == month && !item.isIncome
         }
 
         val spentByCategory = currentMonthExpenses.groupBy { it.categoryId }

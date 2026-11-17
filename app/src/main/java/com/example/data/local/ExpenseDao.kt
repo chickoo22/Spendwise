@@ -19,6 +19,9 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses WHERE id = :id LIMIT 1")
     suspend fun getExpenseById(id: Long): ExpenseEntity?
 
+    @Query("SELECT EXISTS(SELECT 1 FROM expenses LIMIT 1)")
+    suspend fun hasExpenses(): Boolean
+
     @Query("SELECT * FROM expenses WHERE categoryId = :categoryId ORDER BY timestamp DESC")
     fun getExpensesByCategory(categoryId: String): Flow<List<ExpenseEntity>>
 
@@ -30,6 +33,9 @@ interface ExpenseDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExpense(expense: ExpenseEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertRecurringOccurrence(expense: ExpenseEntity): Long
 
     @Update
     suspend fun updateExpense(expense: ExpenseEntity)

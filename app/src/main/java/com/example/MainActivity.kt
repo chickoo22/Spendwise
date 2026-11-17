@@ -1,12 +1,17 @@
 package com.example
 
+import android.app.KeyguardManager
+import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -36,9 +41,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.core.content.ContextCompat
 import com.example.data.local.AppDatabase
 import com.example.data.repository.ExpenseRepository
 import com.example.ui.components.SmartParseExpenseDialog
@@ -54,6 +61,17 @@ import com.example.ui.viewmodel.ExpenseViewModel
 import com.example.ui.viewmodel.ExpenseViewModelFactory
 
 class MainActivity : ComponentActivity() {
+
+    private companion object {
+        const val APP_LOCK_PREFS = "spendwise_prefs"
+        const val KEY_APP_LOCK_ENABLED = "app_lock_enabled"
+        const val DEVICE_CREDENTIAL_REQUEST = 741
+    }
+
+    private val appLockPrefs by lazy { getSharedPreferences(APP_LOCK_PREFS, Context.MODE_PRIVATE) }
+    private var sessionUnlocked = false
+    private var authenticationInProgress = false
+    private var waitingForDeviceCredential = false
 
     private val viewModel: ExpenseViewModel by viewModels {
         val database = AppDatabase.getDatabase(applicationContext)
@@ -80,6 +98,30 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (appLockPrefs.getBoolean(KEY_APP_LOCK_ENABLED, false) && !sessionUnlocked) {
+            requestAppUnlock()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (!isChangingConfigurations && !authenticationInProgress && !waitingForDeviceCredential) {
+            sessionUnlocked = false
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == DEVICE_CREDENTIAL_REQUEST) {
+            waitingForDeviceCredential = false
+            sessionUnlocked = resultCode == RESULT_OK
+            if (!sessionUnlocked) moveTaskToBack(true)
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -93,10 +135,90 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun requestAppUnlock() {
+        if (authenticationInProgress || waitingForDeviceCredential || isFinishing) return
+
+        val biometricManager = BiometricManager.from(this)
+        val authenticators = BiometricManager.Authenticators.BIOMETRIC_WEAK or
+            BiometricManager.Authenticators.DEVICE_CREDENTIAL
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R &&
+            biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) != BiometricManager.BIOMETRIC_SUCCESS
+        ) {
+            launchDeviceCredential()
+            return
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+            biometricManager.canAuthenticate(authenticators) != BiometricManager.BIOMETRIC_SUCCESS
+        ) {
+            disableUnavailableAppLock()
+            return
+        }
+
+        authenticationInProgress = true
+        val prompt = BiometricPrompt(
+            this,
+            ContextCompat.getMainExecutor(this),
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    authenticationInProgress = false
+                    sessionUnlocked = true
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    super.onAuthenticationError(errorCode, errString)
+                    authenticationInProgress = false
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R &&
+                        errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON
+                    ) {
+                        launchDeviceCredential()
+                    } else {
+                        moveTaskToBack(true)
+                    }
+                }
+            }
+        )
+
+        val promptBuilder = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Unlock SpendWise")
+            .setSubtitle("Use your phone's biometric or screen lock")
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            promptBuilder.setAllowedAuthenticators(authenticators)
+        } else {
+            promptBuilder
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+                .setNegativeButtonText("Use screen lock")
+        }
+        prompt.authenticate(promptBuilder.build())
+    }
+
+    private fun launchDeviceCredential() {
+        val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        val intent = keyguardManager.createConfirmDeviceCredentialIntent(
+            "Unlock SpendWise",
+            "Confirm your screen lock to continue"
+        )
+        if (intent == null) {
+            disableUnavailableAppLock()
+            return
+        }
+        waitingForDeviceCredential = true
+        startActivityForResult(intent, DEVICE_CREDENTIAL_REQUEST)
+    }
+
+    private fun disableUnavailableAppLock() {
+        appLockPrefs.edit().putBoolean(KEY_APP_LOCK_ENABLED, false).apply()
+        sessionUnlocked = true
+    }
 }
 
 @Composable
 fun SpendWiseApp(viewModel: ExpenseViewModel) {
+    val context = LocalContext.current
     val isOnboarded by viewModel.isOnboarded.collectAsStateWithLifecycle()
     val currentCurrency by viewModel.currentCurrency.collectAsStateWithLifecycle()
     val analytics by viewModel.monthlyAnalytics.collectAsStateWithLifecycle()
@@ -111,6 +233,8 @@ fun SpendWiseApp(viewModel: ExpenseViewModel) {
     val overallBudgetSummary by viewModel.overallBudgetSummary.collectAsStateWithLifecycle()
     val recurringList by viewModel.allRecurringExpenses.collectAsStateWithLifecycle()
     val sharedParsedExpense by viewModel.sharedParsedExpense.collectAsStateWithLifecycle()
+    val appLockEnabled by viewModel.appLockEnabled.collectAsStateWithLifecycle()
+    val isDeviceSecure = (context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isDeviceSecure
 
     var currentTab by remember { mutableIntStateOf(0) } // 0: Home, 1: Budgets, 2: Analytics, 3: Transactions, 4: Settings
 
@@ -309,6 +433,9 @@ fun SpendWiseApp(viewModel: ExpenseViewModel) {
                             selectedMonth = selectedMonth,
                             monthTitle = analytics.monthTitle,
                             recurringList = recurringList,
+                            appLockEnabled = appLockEnabled,
+                            isDeviceSecure = isDeviceSecure,
+                            onAppLockEnabledChange = { viewModel.setAppLockEnabled(it) },
                             onCurrencyChange = { viewModel.updateCurrency(it) },
                             onAddCustomCategory = { name, icon, color ->
                                 viewModel.addCustomCategory(name, icon, color)

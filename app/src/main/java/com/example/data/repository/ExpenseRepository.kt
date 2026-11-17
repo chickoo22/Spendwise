@@ -67,6 +67,8 @@ class ExpenseRepository(
         return expenseDao.getExpenseById(id)
     }
 
+    suspend fun hasExpenses(): Boolean = expenseDao.hasExpenses()
+
     suspend fun insertExpense(expense: ExpenseEntity): Long {
         return expenseDao.insertExpense(expense)
     }
@@ -123,7 +125,8 @@ class ExpenseRepository(
                     notes = if (item.notes.isNotBlank()) "[Recurring] ${item.notes}" else "[Recurring]",
                     isIncome = item.isIncome
                 )
-                expenseDao.insertExpense(expense)
+                // The unique source/date index makes this safe to retry after an interrupted run.
+                expenseDao.insertRecurringOccurrence(expense.copy(recurringSourceId = item.id))
 
                 val cal = Calendar.getInstance().apply { timeInMillis = dueTime }
                 when (item.frequency.uppercase()) {
@@ -191,6 +194,14 @@ class ExpenseRepository(
 
     suspend fun clearAllBudgets() {
         categoryBudgetDao.deleteAllBudgets()
+    }
+
+    suspend fun clearAllData() {
+        expenseDao.deleteAllExpenses()
+        categoryBudgetDao.deleteAllBudgets()
+        recurringExpenseDao.deleteAll()
+        categoryDao.deleteAllCategories()
+        userSettingDao.deleteAllSettings()
     }
 
     suspend fun seedStarterExpensesIfEmpty() {

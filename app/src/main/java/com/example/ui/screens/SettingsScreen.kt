@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CurrencyExchange
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Star
@@ -46,6 +47,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -80,6 +82,8 @@ fun SettingsScreen(
     selectedMonth: Int = 0,
     monthTitle: String = "",
     recurringList: List<RecurringExpenseEntity> = emptyList(),
+    appLockEnabled: Boolean = false,
+    isDeviceSecure: Boolean = false,
     onCurrencyChange: (Currency) -> Unit,
     onAddCustomCategory: (name: String, iconKey: String, colorHex: Long) -> Unit,
     onSeedDemoData: () -> Unit,
@@ -87,9 +91,11 @@ fun SettingsScreen(
     onAddRecurring: (title: String, amount: Double, category: Category, frequency: String, paymentMethod: String, notes: String, isIncome: Boolean) -> Unit = { _, _, _, _, _, _, _ -> },
     onUpdateRecurring: (RecurringExpenseEntity) -> Unit = {},
     onDeleteRecurring: (RecurringExpenseEntity) -> Unit = {},
+    onAppLockEnabledChange: (Boolean) -> Unit = {},
     formatCurrency: (Double) -> String = { "$$it" }
 ) {
     var showCurrencyDialog by remember { mutableStateOf(false) }
+    var showCurrencyLockedDialog by remember { mutableStateOf(false) }
     var showClearConfirm by remember { mutableStateOf(false) }
     var showAddCategoryDialog by remember { mutableStateOf(false) }
     var showExportCsvDialog by remember { mutableStateOf(false) }
@@ -132,7 +138,10 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(18.dp))
-                        .clickable { showCurrencyDialog = true }
+                        .clickable {
+                            if (allExpenses.isEmpty()) showCurrencyDialog = true
+                            else showCurrencyLockedDialog = true
+                        }
                         .testTag("setting_currency_card"),
                     shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(
@@ -174,6 +183,13 @@ fun SettingsScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                                if (allExpenses.isNotEmpty()) {
+                                    Text(
+                                        text = "Locked to protect existing transaction amounts",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
 
@@ -182,7 +198,7 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "Change",
+                                text = if (allExpenses.isEmpty()) "Change" else "Why?",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -251,6 +267,71 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            item {
+                Text(
+                    text = "App Lock",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Require phone unlock",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = if (isDeviceSecure) {
+                                    "Use your fingerprint, face, or screen lock when reopening SpendWise."
+                                } else {
+                                    "Set a screen lock on this phone before enabling app lock."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = appLockEnabled,
+                            onCheckedChange = onAppLockEnabledChange,
+                            enabled = isDeviceSecure,
+                            modifier = Modifier.testTag("app_lock_switch")
+                        )
                     }
                 }
 
@@ -699,6 +780,19 @@ fun SettingsScreen(
         )
     }
 
+    if (showCurrencyLockedDialog) {
+        AlertDialog(
+            onDismissRequest = { showCurrencyLockedDialog = false },
+            title = { Text("Currency is locked") },
+            text = {
+                Text("Changing currency would re-label existing amounts without converting them. Export or clear your transactions before choosing a new base currency.")
+            },
+            confirmButton = {
+                TextButton(onClick = { showCurrencyLockedDialog = false }) { Text("OK") }
+            }
+        )
+    }
+
     // Add Custom Category Dialog
     if (showAddCategoryDialog) {
         var catName by remember { mutableStateOf("") }
@@ -806,8 +900,8 @@ fun SettingsScreen(
     if (showClearConfirm) {
         AlertDialog(
             onDismissRequest = { showClearConfirm = false },
-            title = { Text("Clear All Transactions?") },
-            text = { Text("This will permanently delete all expenses from the device database. This action cannot be undone.") },
+            title = { Text("Reset All SpendWise Data?") },
+            text = { Text("This permanently deletes transactions, budgets, recurring rules, custom categories, and preferences from this device. This action cannot be undone.") },
             confirmButton = {
                 TextButton(
                     onClick = {

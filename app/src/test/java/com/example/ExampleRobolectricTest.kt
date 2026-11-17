@@ -155,6 +155,7 @@ class ExampleRobolectricTest {
         assertEquals("\"Coffee, Tea\"", CsvExporter.escapeCsv("Coffee, Tea"))
         assertEquals("\"Movie \"\"Night\"\"\"", CsvExporter.escapeCsv("Movie \"Night\""))
         assertEquals("\"Line 1\nLine 2\"", CsvExporter.escapeCsv("Line 1\nLine 2"))
+        assertEquals("'=1+1", CsvExporter.escapeCsv("=1+1"))
 
         val sampleExpenses = listOf(
             ExpenseEntity(
@@ -386,5 +387,51 @@ class ExampleRobolectricTest {
         assertEquals(1, overallSummary.exceededCount) // Groceries exceeded!
         assertEquals(0, overallSummary.warningCount)  // None near limit
         assertEquals(1, overallSummary.onTrackCount)  // Food on track (60% spent)!
+    }
+
+    @Test
+    fun `recurring occurrence insert is idempotent`() = runBlocking {
+        val occurrence = ExpenseEntity(
+            title = "Monthly rent",
+            amount = 1000.0,
+            categoryId = "housing",
+            categoryName = "Housing & Rent",
+            categoryIcon = "housing",
+            categoryColor = 0xFF6366F1L,
+            timestamp = 1775001600000L,
+            recurringSourceId = 42L
+        )
+
+        assertTrue(expenseDao.insertRecurringOccurrence(occurrence) > 0)
+        assertEquals(-1L, expenseDao.insertRecurringOccurrence(occurrence))
+        assertEquals(1, expenseDao.getAllExpenses().first().size)
+    }
+
+    @Test
+    fun `income does not count against a category budget`() {
+        val timestamp = Calendar.getInstance().apply {
+            set(2026, Calendar.SEPTEMBER, 10, 12, 0, 0)
+        }.timeInMillis
+        val income = ExpenseEntity(
+            title = "Refund",
+            amount = 100.0,
+            categoryId = "food",
+            categoryName = "Food & Dining",
+            categoryIcon = "restaurant",
+            categoryColor = 0xFFEF4444L,
+            timestamp = timestamp,
+            isIncome = true
+        )
+        val viewModel = ExpenseViewModel(context as android.app.Application, repository)
+
+        val progress = viewModel.calculateBudgetProgress(
+            allExpenses = listOf(income),
+            budgets = listOf(CategoryBudgetEntity(categoryId = "food", monthlyLimit = 200.0)),
+            customCategories = emptyList(),
+            year = 2026,
+            month = Calendar.SEPTEMBER
+        )
+
+        assertEquals(0.0, progress.first { it.categoryId == "food" }.spentAmount, 0.001)
     }
 }

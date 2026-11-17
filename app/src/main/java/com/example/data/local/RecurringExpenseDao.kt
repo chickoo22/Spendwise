@@ -24,4 +24,7 @@ interface RecurringExpenseDao {
 
     @Delete
     suspend fun delete(recurring: RecurringExpenseEntity)
+
+    @Query("DELETE FROM recurring_expenses")
+    suspend fun deleteAll()
 }

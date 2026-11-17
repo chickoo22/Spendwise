@@ -48,19 +48,25 @@ object CsvExporter {
     /**
      * Escapes a single CSV value according to RFC-4180 rules.
      * Encloses the string in quotes if it contains commas, quotes, or newlines,
-     * and doubles any existing double-quotes.
+     * doubles existing double-quotes, and neutralizes spreadsheet formulas.
      */
     fun escapeCsv(value: String): String {
         val trimmed = value.trim()
-        val needsQuotes = trimmed.contains(",") ||
-                trimmed.contains("\"") ||
-                trimmed.contains("\n") ||
-                trimmed.contains("\r")
-
-        return if (needsQuotes) {
-            "\"" + trimmed.replace("\"", "\"\"") + "\""
+        val safeValue = if (trimmed.startsWith("=") || trimmed.startsWith("+") ||
+            trimmed.startsWith("-") || trimmed.startsWith("@")) {
+            "'$trimmed"
         } else {
             trimmed
+        }
+        val needsQuotes = safeValue.contains(",") ||
+                safeValue.contains("\"") ||
+                safeValue.contains("\n") ||
+                safeValue.contains("\r")
+
+        return if (needsQuotes) {
+            "\"" + safeValue.replace("\"", "\"\"") + "\""
+        } else {
+            safeValue
         }
     }
 

@@ -6,7 +6,10 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "expenses",
-    indices = [Index(value = ["timestamp"])]
+    indices = [
+        Index(value = ["timestamp"]),
+        Index(value = ["recurringSourceId", "timestamp"], unique = true)
+    ]
 )
 data class ExpenseEntity(
     @PrimaryKey(autoGenerate = true)
@@ -20,5 +23,7 @@ data class ExpenseEntity(
     val timestamp: Long = System.currentTimeMillis(),
     val paymentMethod: String = "UPI", // UPI, Transfer, Cash, Card
     val notes: String = "",
-    val isIncome: Boolean = false
+    val isIncome: Boolean = false,
+    /** Identifies an automatically generated recurring occurrence, if any. */
+    val recurringSourceId: Long? = null
 )

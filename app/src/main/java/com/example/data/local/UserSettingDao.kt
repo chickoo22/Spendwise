@@ -19,4 +19,7 @@ interface UserSettingDao {
 
     @Query("DELETE FROM user_settings WHERE `key` = :key")
     suspend fun deleteSetting(key: String)
+
+    @Query("DELETE FROM user_settings")
+    suspend fun deleteAllSettings()
 }
